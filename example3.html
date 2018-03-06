@@ -1,0 +1,179 @@
+<html>
+
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/sha256.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.11.0/themes/prism.min.css"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.11.0/prism.min.js"></script>
+</head>
+
+<body>
+
+    <h2>Danh sách các giao dịch sau khi đào tiền ảo lần 1 trong Blockchain:</h2>
+    <pre id="DanhSachGiaoDichSauKhiDaoLan1"></pre>
+    <br/>
+
+    <h2>Kiểm tra lần đào 1 "DiaChiViTienCuaToi" :
+        <pre id="DiaChiViTienCuaToiLan1"></pre>
+    </h2>
+    <br/>
+
+    <h2>Danh sách các giao dịch sau khi đào tiền ảo lần 2 trong Blockchain:</h2>
+    <pre id="DanhSachGiaoDichSauKhiDaoLan2"></pre>
+    <br/>
+
+
+    <h2>Kiểm tra lần đào 2 "DiaChiViTienCuaToi" :
+        <pre id="DiaChiViTienCuaToiLan2"></pre>
+    </h2>
+    <br/>
+    <h2>Kiểm tra tính toàn vẹn của Blockchain sau 2 lần giao dịch:</h2>
+    <p id="KiemTra"></p>
+    <br/>
+    <script>
+        /*=== ĐÂY LÀ CLASS MÔ TẢ CẤU TRÚC CỦA MỘT GIAO DỊCH ===*/
+        class GiaoDich {
+            constructor(DiaChiGui, DiaChiNhan, GiaTri) {
+                this.DiaChiGui = DiaChiGui;
+                this.DiaChiNhan = DiaChiNhan;
+                this.GiaTri = GiaTri;
+            }
+        }
+
+        /*=== ĐÂY LÀ CLASS MÔ TẢ CẤU TRÚC CỦA MỘT BLOCK. MỘT PHẦN TỬ CỦA BLOCKCHAIN ===*/
+        class Block {
+            constructor(NgayGioTao, DanhSachGiaoDich, HashTruocDo = '') { //Để tạo ra một Block chúng ta cần truyền vào các tham số như sau:
+                this.NgayGioTao = NgayGioTao; //Ngày tháng hiện tại tạo ra Block này
+                this.DanhSachGiaoDich = DanhSachGiaoDich; //Dữ liệu giao dịch sẽ được lưu trong BLock này. Nó có thể là bất cứ cái gì, từ String, Array, Object JSON...
+                this.HashTruocDo = HashTruocDo; //Lưu trữ Hash của Block ngay trước Block này. Vì các Block sẽ được nối lại thành chuỗi (mảng).
+                this.Hash = this.TinhToanHash(); //Mã hóa toàn bộ nội dung của BLock này theo thuật toán SHA256 và lưu lại vào chính Block này.
+                this.GiaTriTuTang = 0; //Giá trị tự tăng của Block để tính toán Hash
+            }
+            TinhToanHash() { //Hàm mã hóa nội dung của toàn bộ Block. Do đó ta cần lấy toàn bộ các thuộc tính của Block đưa vào SHA256 để mã hóa ra một chuỗi.
+                return CryptoJS.SHA256(this.HashTruocDo + this.NgayTao + JSON.stringify(this.DuLieu) + this.GiaTriTuTang)
+                    .toString(); //chú ý: JSON.stringify(this.DuLieu) sẽ convert biến Object this.DuLieu thành chuỗi
+            }
+
+            DaoBlock(DoKho) {
+                while (this.Hash.substring(0, DoKho) !== Array(DoKho + 1).join("0")) { //Kiểm tra xem giá trị Hash hiện tại đã đạt đủ số 0 ở đầu tiên như yêu vầu về độ khó đặt ra chưa. Lặp đi lặp lại hàm cho đến khi tìm được giá trị Hash đáp ứng yêu cầu.
+                    this.GiaTriTuTang++; //Tăng giá trị trong Block lên, để Hash mỗi lần sẽ nhận được một giá trị khác nhau. Nếu Hash không có 2 hoặc n số 0 ở đầu thì sẽ không đạt yêu cầu và phải tiếp tục Hash cái khác.
+                    this.Hash = this.TinhToanHash(); //Tính toán lại Hash của toàn bộ Block ứng với lần tăng này.
+                }
+                console.log("Đã đào xong Block: " + this.Hash); //Nếu đã tìm được Hash thì ta coi đấy là một lần "đào" (hashing) thành công.
+            }
+        }
+        /*=== ĐÂY LÀ CLASS MÔ TẢ CẤU TRÚC CỦA MỘT BLOCKCHAIN. LÀ MỘT MẢNG CÁC BLOCK ===*/
+        class Blockchain {
+            constructor() { //Cấu trúc của Blockchain như sau
+                this.MangBlock = []; //Tạo ra một mảng rỗng để chứa các Block. 
+                this.MangBlock.push(new Block("01/01/2018", "Genesis Block", "0")); //Tạo phần tử đầu tiên của Blockchain. Đây thường được gọi là Genesis Block, hay chính là "phần tử khởi tạo". Các phần tử tiếp theo sẽ nối tiếp vào phần tử này.
+                this.DoKho = 4; //Với độ khó này thì 3 giây sẽ Hash được 1 block.
+
+                /*Phần này mới được thêm vào*/
+                this.GiaoDichTamHoan = []; //Là mảng các giao dịch mới thêm vào mảng Blockchain và chưa được Hash xong.
+                this.PhanThuong = 100; //Là phần thưởng dành cho các miner (người đào hash) cho việc thêm mới thành công mảng GiaoDichTamHoan vào Blockchain.
+
+            }
+
+            PhanTuCuoiCung() {
+                return this.MangBlock[this.MangBlock.length - 1]; //Lấy ra phần tử cuối cùng của Blockchain
+            }
+
+            DaoTienAo(DiaChiViNhanTienThuong) { //Hàm dùng để đào (thêm mới) một Block vào Blockchain.
+
+                //Lúc này ta sẽ tạo mới một Block, trong Block này sẽ chứa toàn bộ các giao dịch đã bị tạm hoãn trước đó, do nó chưa được đào và chưa có Hash.
+                let block = new Block(new Date(), this.GiaoDichTamHoan, this.PhanTuCuoiCung().Hash);
+
+
+                block.DaoBlock(this.DoKho); //Vẫn phải đào Hash bình thường cho lần này.
+                this.MangBlock.push(block); //Nối phần tử block vào làm phần tử cuối cùng của mảng Blockchain sau khi đã "đào" được.
+
+
+                //Sau khi đã bỏ công ra đào 1 Hash cho giao dịch hiện tại, ta sẽ có quyền được thưởng một phần tiền thưởng cố định sẵn. GiaoDichTamHoan đã được xử lý xong nên có thể xóa nó đi, sau đó ta gán một GiaoDichTamHoan mới, trong đó chuyển lượng tiền ta nhận được vào ví của chính mình.
+                this.GiaoDichTamHoan = [
+                    new GiaoDich(null, DiaChiViNhanTienThuong, this.PhanThuong)
+                ];
+
+                //Chú ý là chỗ này ta không thể nhận được ngay lượng tiền này trong ví, vì giao dịch chưa được tạo và chưa có Hash. Nên trong Blockchain chưa có bản ghi mới ghi nhận số tiền đã chuyển vào ví nhận tiền thưởng.
+                //Để nhận được khoản tiền thưởng cho lần đào này. Thì ta phải đợi đến lần đào kế tiếp, giao dịch tạm hoãn này sẽ được khớp lệnh và lúc đó tiền thưởng mới có trong ví.
+            }
+
+            /* - Đây là hàm sẽ tạo ra một giao dịch mới. Đưa giao dịch vào mảng GiaoDichTamHoan. Như vậy là một Block sẽ có thể chứa nhiều giao dịch mà đang đợi Hash để được công nhận chính thức và thêm được vào Blockchain - */
+            TaoGiaoDich(GiaoDichMoi) {
+                this.GiaoDichTamHoan.push(GiaoDichMoi);
+            }
+
+            KiemTraTienTrongVi(DiaChiVi) {
+                let TienTrongVi = 0;
+                for (const block of this.MangBlock) {
+                    for (const gd of block.DanhSachGiaoDich) {
+                        if (gd.DiaChiGui === DiaChiVi) {
+                            TienTrongVi -= gd.GiaTri;
+                        }
+
+                        if (gd.DiaChiNhan === DiaChiVi) {
+                            TienTrongVi += gd.GiaTri;
+                        }
+                    }
+                }
+                return TienTrongVi;
+            }
+
+
+            KiemTraTinhToanVen() {
+                for (let i = 1; i < this.MangBlock.length; i++) {
+                    const BlockHienTai = this.MangBlock[i]; //Lấy ra phần tử ở vị trí hiện tại
+                    const BlockTruocDo = this.MangBlock[i - 1]; //Lấy ra phần tử ở ngay trước vị trí hiện tại
+                    if (BlockHienTai.Hash !== BlockHienTai.TinhToanHash()) { //Kiểm tra lại Hash của toàn bộ Block hiện tại và Hash đã lưu xem có trùng nhau không.
+                        return false; //Nếu không trùng tức là Dữ liệu trong Block hiện tạiđã bị chỉnh sửa, hàm KiemTraToanVen sẽ trả về false luôn.
+                    }
+                    if (BlockHienTai.HashTruocDo !== BlockTruocDo.Hash) { //Lấy Hash hiện tại và Hash phần tử trước đó đã lưu xem có trùng nhau không.
+                        return false; //Nếu không trùng tức là Hash của Block hiện tại đã bị chỉnh sửa, hàm KiemTraToanVen sẽ trả về false luôn.
+                    }
+                }
+                return true; //Nếu kiểm tra hết toàn bộ trong vòng For mà không vấn đề gì thì tức là Blockchain vẫn toàn vẹn, chưa bị sửa đổi.
+            }
+        }
+
+        /*=== BẮT ĐẦU TEST CÁC CHỨC NĂNG CỦA BLOCKCHAIN VỪA TẠO  ===*/
+        var MyCoin = new Blockchain(); //Tạo mới một Blockchain để chứa các giao dịch.
+
+        MyCoin.TaoGiaoDich(new GiaoDich(
+            "Dia Chi Vi Tien Ong A",
+            "Dia Chi Vi Tien Ba B",
+            350
+        ));
+        MyCoin.TaoGiaoDich(new GiaoDich(
+            "Dia Chi Vi Tien Ba B",
+            "Dia Chi Vi Tien Ong C",
+            200
+        ));
+
+        console.log("Bắt đầu đào tiền ảo...");
+
+        //Hiển thị toàn bộ Blockchain sau khi đã chạy xong thuật toán đào tiền và nhét các Block vào Blockchain.
+        document.getElementById("DanhSachGiaoDichSauKhiDaoLan1").innerHTML = JSON.stringify(MyCoin, null, 2);
+
+        //Lúc này ta sẽ dùng máy tính này để chạy thuật toán đào tiền ảo, truyền vào địa chỉ ví tiền để nhận tiền ảo. 
+        MyCoin.DaoTienAo("DiaChiViTienCuaToi");
+
+        //Hãy kiểm tra lượng tiền ảo ta có trong ví.
+        document.getElementById("DiaChiViTienCuaToiLan1").innerHTML = MyCoin.KiemTraTienTrongVi("DiaChiViTienCuaToi");
+
+
+        //Ta thấy sau lần đào tiền đầu tiên thì ví tiền của ta vẫn trống rỗng. Hãy đào tiếp một lần nữa để có thể lấy đc phần thưởng của lần trước đó.
+        MyCoin.DaoTienAo("DiaChiViTienCuaToi");
+
+        //Kiểm tra lại lượng tiền ảo ta có trong ví. Ta thấy nó đã có giá trị
+        document.getElementById("DiaChiViTienCuaToiLan2").innerHTML = MyCoin.KiemTraTienTrongVi("DiaChiViTienCuaToi");
+
+        //Hiển thị toàn bộ Blockchain sau khi đã chạy xong thuật toán đào tiền và nhét các Block vào Blockchain lần 2
+        document.getElementById("DanhSachGiaoDichSauKhiDaoLan2").innerHTML = JSON.stringify(MyCoin, null, 2);
+
+
+        //Kiểm tra lại xem sau 2 lần giao dịch thì các giao dịch trong Blockchain có còn minh bạch và toàn vẹn hay không
+        document.getElementById("KiemTra").innerHTML = MyCoin.KiemTraTinhToanVen();
+    </script>
+</body>
+
+</html>
