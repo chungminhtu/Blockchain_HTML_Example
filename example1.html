@@ -1,0 +1,99 @@
+<html>
+
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/sha256.min.js"></script>
+</head>
+
+<body>
+    <h2>Danh sách các giao dịch hiện tại trong Blockchain:</h2>
+    <pre id="DanhSachGiaoDich"></pre>
+    <br/>
+    <h2>Kiểm tra tính toàn vẹn của Blockchain trước khi chỉnh sửa:</h2>
+    <p id="TruocKhiSua"></p>
+    <br/>
+    <h2>Danh sách các giao dịch đã bị sửa trong Blockchain:</h2>
+    <pre id="DanhSachGiaoDichDaSua"></pre>
+    <br/>
+    <h2>Kiểm tra tính toàn vẹn của Blockchain sau khi đã bị sửa:</h2>
+    <p id="SauKhiSua"></p>
+    <br/>
+    <script>
+        /*=== ĐÂY LÀ CLASS MÔ TẢ CẤU TRÚC CỦA MỘT BLOCK. MỘT PHẦN TỬ CỦA BLOCKCHAIN ===*/
+        class Block {
+            constructor(NgayGioTao, DuLieu, HashTruocDo = '') { //Để tạo ra một Block chúng ta cần truyền vào các tham số như sau:
+                this.NgayGioTao = NgayGioTao; //Ngày tháng hiện tại tạo ra Block này
+                this.DuLieu = DuLieu; //Dữ liệu sẽ được lưu trong BLock này. Nó có thể là bất cứ cái gì, từ String, Array, Object JSON...
+                this.HashTruocDo = HashTruocDo; //Lưu trữ Hash của Block ngay trước Block này. Vì các Block sẽ được nối lại thành chuỗi (mảng).
+                this.Hash = this.TinhToanHash(); //Mã hóa toàn bộ nội dung của BLock này theo thuật toán SHA256 và lưu lại vào chính Block này.
+            }
+            TinhToanHash() { //Hàm mã hóa nội dung của toàn bộ Block. Do đó ta cần lấy toàn bộ các thuộc tính của Block đưa vào SHA256 để mã hóa ra một chuỗi.
+                return CryptoJS.SHA256(this.HashTruocDo + this.NgayTao + JSON.stringify(this.DuLieu)).toString(); //chú ý: JSON.stringify(this.DuLieu) sẽ convert biến Object this.DuLieu thành chuỗi.
+            }
+        }
+        /*=== ĐÂY LÀ CLASS MÔ TẢ CẤU TRÚC CỦA MỘT BLOCKCHAIN. LÀ MỘT MẢNG CÁC BLOCK ===*/
+        class Blockchain {
+            constructor() { //Cấu trúc của Blockchain như sau
+                this.MangBlock = []; //Tạo ra một mảng rỗng để chứa các Block. 
+                this.MangBlock.push(new Block("01/01/2018", "Genesis Block", "0")); //Tạo phần tử đầu tiên của Blockchain. Đây thường được gọi là Genesis Block, hay chính là "phần tử khởi tạo". Các phần tử tiếp theo sẽ nối tiếp vào phần tử này.
+            }
+
+            PhanTuCuoiCung() {
+                return this.MangBlock[this.MangBlock.length - 1]; //Lấy ra phần tử cuối cùng của Blockchain
+            }
+
+            TaoMoiBlock(newBlock) { //Hàm dùng để thêm mới một Block vào Blockchain.
+                newBlock.HashTruocDo = this.PhanTuCuoiCung().Hash; //Lấy Hash của phần tử cuối cùng của mảng và lưu vào HasTruocDo của phần tử này
+                newBlock.Hash = newBlock.TinhToanHash(); //Tính toán Hash của chính phần tử này.
+                this.MangBlock.push(newBlock); //Nối phần tử newBlock vào làm phần tử cuối cùng của mảng Blockchain.
+            }
+
+            KiemTraTinhToanVen() {
+                for (let i = 1; i < this.MangBlock.length; i++) {
+                    const BlockHienTai = this.MangBlock[i]; //Lấy ra phần tử ở vị trí hiện tại
+                    const BlockTruocDo = this.MangBlock[i - 1]; //Lấy ra phần tử ở ngay trước vị trí hiện tại
+                    if (BlockHienTai.Hash !== BlockHienTai.TinhToanHash()) { //Kiểm tra lại Hash của toàn bộ Block hiện tại và Hash đã lưu xem có trùng nhau không.
+                        return false; //Nếu không trùng tức là Dữ liệu trong Block hiện tạiđã bị chỉnh sửa, hàm KiemTraToanVen sẽ trả về false luôn.
+                    }
+                    if (BlockHienTai.HashTruocDo !== BlockTruocDo.Hash) { //Lấy Hash hiện tại và Hash phần tử trước đó đã lưu xem có trùng nhau không.
+                        return false; //Nếu không trùng tức là Hash của Block hiện tại đã bị chỉnh sửa, hàm KiemTraToanVen sẽ trả về false luôn.
+                    }
+                }
+                return true; //Nếu kiểm tra hết toàn bộ trong vòng For mà không vấn đề gì thì tức là Blockchain vẫn toàn vẹn, chưa bị sửa đổi.
+            }
+        }
+
+        /*=== BẮT ĐẦU TEST CÁC CHỨC NĂNG CỦA BLOCKCHAIN VỪA TẠO  ===*/
+
+        var MyCoin = new Blockchain(); //Tạo mới một Blockchain để chứa các giao dịch.
+        MyCoin.TaoMoiBlock(new Block("02/01/2018", { //Thêm một giao dịch mới, Data là một Object chứa nội dung chuyển tiền
+            NguoiGui: "Ong A",
+            NguoiNhan: "Ba B",
+            Tien: 350
+        }));
+        MyCoin.TaoMoiBlock(new Block("03/01/2018", { //Thêm một giao dịch mới, Data là một Object chứa nội dung chuyển tiền
+            NguoiGui: "Ba B",
+            NguoiNhan: "Ong C",
+            Tien: 200
+        }));
+
+        //Đầu tiên ta hiển thị thử xem mảng Blockchain chứa giao dịch đang có những gì
+        document.getElementById("DanhSachGiaoDich").innerHTML = JSON.stringify(MyCoin, null, 2);
+
+        //Ta kiểm tra tính toàn vẹn của Mảng Blockchain hiện tại.
+        document.getElementById("TruocKhiSua").innerHTML = MyCoin.KiemTraTinhToanVen(); //return  true;
+
+        //Giả sử Hacker lấy được toàn bộ mảng Blockchain hiện tại của ta, và hắn tìm cách sửa đổi một phần tử trong mảng.
+        MyCoin.MangBlock[2].DuLieu = {
+            NguoiGui: "Ba B",
+            NguoiNhan: "Ong C",
+            Tien: 400
+        };
+
+        //Lúc này mảng đã bị ảnh hưởng, hãy kiểm tra tính toàn vẹn của mảng một lần nữa.
+        document.getElementById("DanhSachGiaoDichDaSua").innerHTML = JSON.stringify(MyCoin, null, 2);
+        document.getElementById("SauKhiSua").innerHTML = MyCoin.KiemTraTinhToanVen(); //return false;
+    </script>
+</body>
+
+</html>
