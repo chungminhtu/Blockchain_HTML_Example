@@ -3,26 +3,19 @@
 <head>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/sha256.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.11.0/themes/prism.min.css"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.11.0/prism.min.js"></script>
 </head>
 
 <body>
-
     <h2>Danh sách các giao dịch sau khi đào tiền ảo lần 1 trong Blockchain:</h2>
     <pre id="DanhSachGiaoDichSauKhiDaoLan1"></pre>
     <br/>
-
     <h2>Kiểm tra lần đào 1 "DiaChiViTienCuaToi" :
         <pre id="DiaChiViTienCuaToiLan1"></pre>
     </h2>
     <br/>
-
     <h2>Danh sách các giao dịch sau khi đào tiền ảo lần 2 trong Blockchain:</h2>
     <pre id="DanhSachGiaoDichSauKhiDaoLan2"></pre>
     <br/>
-
-
     <h2>Kiểm tra lần đào 2 "DiaChiViTienCuaToi" :
         <pre id="DiaChiViTienCuaToiLan2"></pre>
     </h2>
@@ -33,7 +26,7 @@
     <script>
         /*=== ĐÂY LÀ CLASS MÔ TẢ CẤU TRÚC CỦA MỘT GIAO DỊCH ===*/
         class GiaoDich {
-            constructor(DiaChiGui, DiaChiNhan, GiaTri) {
+            constructor(DiaChiGui, DiaChiNhan, GiaTri) {  //Các thông tin của một giao dịch vẫn cơ bản như cũ
                 this.DiaChiGui = DiaChiGui;
                 this.DiaChiNhan = DiaChiNhan;
                 this.GiaTri = GiaTri;
@@ -71,7 +64,7 @@
 
                 /*Phần này mới được thêm vào*/
                 this.GiaoDichTamHoan = []; //Là mảng các giao dịch mới thêm vào mảng Blockchain và chưa được Hash xong.
-                this.PhanThuong = 100; //Là phần thưởng dành cho các miner (người đào hash) cho việc thêm mới thành công mảng GiaoDichTamHoan vào Blockchain.
+                this.TienThuong = 100; //Là phần thưởng dành cho các miner (người đào hash) cho việc thêm mới thành công mảng GiaoDichTamHoan vào Blockchain.
 
             }
 
@@ -91,32 +84,35 @@
 
                 //Sau khi đã bỏ công ra đào 1 Hash cho giao dịch hiện tại, ta sẽ có quyền được thưởng một phần tiền thưởng cố định sẵn. GiaoDichTamHoan đã được xử lý xong nên có thể xóa nó đi, sau đó ta gán một GiaoDichTamHoan mới, trong đó chuyển lượng tiền ta nhận được vào ví của chính mình.
                 this.GiaoDichTamHoan = [
-                    new GiaoDich(null, DiaChiViNhanTienThuong, this.PhanThuong)
+                    new GiaoDich(null, DiaChiViNhanTienThuong, this.TienThuong)
                 ];
 
                 //Chú ý là chỗ này ta không thể nhận được ngay lượng tiền này trong ví, vì giao dịch chưa được tạo và chưa có Hash. Nên trong Blockchain chưa có bản ghi mới ghi nhận số tiền đã chuyển vào ví nhận tiền thưởng.
                 //Để nhận được khoản tiền thưởng cho lần đào này. Thì ta phải đợi đến lần đào kế tiếp, giao dịch tạm hoãn này sẽ được khớp lệnh và lúc đó tiền thưởng mới có trong ví.
             }
 
-            /* - Đây là hàm sẽ tạo ra một giao dịch mới. Đưa giao dịch vào mảng GiaoDichTamHoan. Như vậy là một Block sẽ có thể chứa nhiều giao dịch mà đang đợi Hash để được công nhận chính thức và thêm được vào Blockchain - */
+            //- Đây là hàm sẽ tạo ra một giao dịch mới. Đưa giao dịch vào mảng GiaoDichTamHoan. Như vậy là một Block sẽ có thể chứa nhiều giao dịch mà đang đợi Hash để được công nhận chính thức và thêm được vào Blockchain -//
             TaoGiaoDich(GiaoDichMoi) {
                 this.GiaoDichTamHoan.push(GiaoDichMoi);
             }
 
+            //Chúng ta cũng cần một hàm để kiểm tra được lượng tiền đang có trong một địa chỉ ví nào đó. 
+            //Mỗi một ví tiền không hề có một con số tổng tiền được lưu trữ lại. Mà việc tính toán số tiền của một địa chỉ ví trong toàn bộ Blockchain ta phải lần tìm lần lượt toàn bộ các giao dịch bên trong Blockchain để kiểm đếm số tiền của một ví. Điều này sẽ rất an toàn và trung thực.
+            //Một điều quan trọng là tính minh bạch ở đây vì bất kỳ ai khi có địa chỉ ví của bạn cũng sẽ nhìn thấy hết toàn bộ giao dịch bạn đã từng thực hiện trong hệ thống.
             KiemTraTienTrongVi(DiaChiVi) {
                 let TienTrongVi = 0;
-                for (const block of this.MangBlock) {
-                    for (const gd of block.DanhSachGiaoDich) {
-                        if (gd.DiaChiGui === DiaChiVi) {
+                for (const block of this.MangBlock) {              //Đi duyệt qua toàn bộ các Block trong Blockchain
+                    for (const gd of block.DanhSachGiaoDich) {     //Đi duyệt qua toàn bộ các giao dịch trong Block (Vì một Block là 1 mảng các giao dịch)
+                        if (gd.DiaChiGui === DiaChiVi) {           //Nếu địa chỉ gửi là ví tiền này, thì tức là phải trừ ở Ví đi số tiền tương ứng trong giao dịch
                             TienTrongVi -= gd.GiaTri;
                         }
 
-                        if (gd.DiaChiNhan === DiaChiVi) {
+                        if (gd.DiaChiNhan === DiaChiVi) {          //Nếu địa chỉ nhận là ví tiền này, thì tức là phải cộng vào Ví số tiền tương ứng trong giao dịch
                             TienTrongVi += gd.GiaTri;
                         }
                     }
                 }
-                return TienTrongVi;
+                return TienTrongVi;                                //Kiểm đếm xong ta sẽ được con số tổng.
             }
 
 
